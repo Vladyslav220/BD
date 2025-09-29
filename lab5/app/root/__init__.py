@@ -16,7 +16,10 @@ def register_routes(app: Flask) -> None:
     from .reservation_route import reservation_bp
     from .company_customer_route import company_customer_bp
     from .service_route import service_bp
-
+    from .swagger_route import swagger_bp, swagger_ui_bp
+    
+    app.register_blueprint(swagger_bp)
+    app.register_blueprint(swagger_ui_bp, url_prefix="/swagger")
     app.register_blueprint(parking_bp)
     app.register_blueprint(parking_spot_bp)
     app.register_blueprint(customer_bp)
@@ -29,3 +32,4 @@ def register_routes(app: Flask) -> None:
     app.register_blueprint(reservation_bp)
     app.register_blueprint(company_customer_bp)
     app.register_blueprint(service_bp)
+
