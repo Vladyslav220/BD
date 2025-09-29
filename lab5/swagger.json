@@ -1,1 +1,19 @@
 
+{
+  "openapi": "3.0.0",
+  "info": { "title": "Parking API (lab5)", "version": "1.0.0" },
+  "paths": {
+    "/parking": { "get": { "summary": "List parkings", "responses": { "200": { "description": "OK" } } } },
+    "/parking_spot": { "get": { "summary": "List spots", "responses": { "200": { "description": "OK" } } } },
+    "/customer": { "get": { "summary": "List customers", "responses": { "200": { "description": "OK" } } } },
+    "/vehicle": { "get": { "summary": "List vehicles", "responses": { "200": { "description": "OK" } } } },
+    "/company": { "get": { "summary": "List companies", "responses": { "200": { "description": "OK" } } } },
+    "/customer_card": { "get": { "summary": "List customer cards", "responses": { "200": { "description": "OK" } } } },
+    "/occupancy": { "get": { "summary": "List occupancy", "responses": { "200": { "description": "OK" } } } },
+    "/ticket": { "get": { "summary": "List tickets", "responses": { "200": { "description": "OK" } } } },
+    "/payment": { "get": { "summary": "List payments", "responses": { "200": { "description": "OK" } } } },
+    "/reservation": { "get": { "summary": "List reservations", "responses": { "200": { "description": "OK" } } } },
+    "/company_customer": { "get": { "summary": "List company-customer links", "responses": { "200": { "description": "OK" } } } },
+    "/service": { "get": { "summary": "List services", "responses": { "200": { "description": "OK" } } } }
+  }
+}
