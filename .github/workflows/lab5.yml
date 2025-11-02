@@ -1,44 +1,44 @@
-name: Lab5 CI/CD
+# name: Lab5 CI/CD
 
-on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'lab5/**'
-      - '.github/workflows/lab5.yml'
+# on:
+#   push:
+#     branches: [ main ]
+#     paths:
+#       - 'lab5/**'
+#       - '.github/workflows/lab5.yml'
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
 
-      - name: Upload lab5 to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: "lab5/**"
-          target: "/home/ubuntu/lab5"
-          overwrite: true
-          strip_components: 1   
+#       - name: Upload lab5 to EC2
+#         uses: appleboy/scp-action@v0.1.7
+#         with:
+#           host: ${{ secrets.SSH_HOST }}
+#           username: ${{ secrets.SSH_USER }}
+#           key: ${{ secrets.SSH_KEY }}
+#           source: "lab5/**"
+#           target: "/home/ubuntu/lab5"
+#           overwrite: true
+#           strip_components: 1   
 
-      - name: Bootstrap venv, install deps, restart service
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script_stop: true
-          script: |
-            set -euo pipefail
-            cd /home/ubuntu/lab5
-            python3 -m venv .venv || true
-            . .venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            sudo systemctl daemon-reload
-            sudo systemctl restart lab5app
-            sudo systemctl --no-pager status lab5app | tail -n 50
+#       - name: Bootstrap venv, install deps, restart service
+#         uses: appleboy/ssh-action@v1.0.0
+#         with:
+#           host: ${{ secrets.SSH_HOST }}
+#           username: ${{ secrets.SSH_USER }}
+#           key: ${{ secrets.SSH_KEY }}
+#           script_stop: true
+#           script: |
+#             set -euo pipefail
+#             cd /home/ubuntu/lab5
+#             python3 -m venv .venv || true
+#             . .venv/bin/activate
+#             pip install --upgrade pip
+#             pip install -r requirements.txt
+#             sudo systemctl daemon-reload
+#             sudo systemctl restart lab5app
+#             sudo systemctl --no-pager status lab5app | tail -n 50
