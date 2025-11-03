@@ -20,11 +20,13 @@ env:
 
   DATABASE_URL: "mysql+pymysql://admin:NewStrongPass!123@database-lab-1.c3u0c6k0idq9.eu-north-1.rds.amazonaws.com:3306/parkingdb"
 
+  DOCKER_CONTEXT: "."
+  DOCKERFILE: "Dockerfile"
 
   LOADGEN_REPO: lab5-loadgen
   LOADGEN_CONCURRENCY: "200"
   LOADGEN_DURATION: "600"
-  LOADGEN_PATH: "/swagger"  
+  LOADGEN_PATH: "/swagger"
 
 jobs:
   all-in-one:
@@ -186,7 +188,7 @@ jobs:
             }' >/dev/null || true
 
           echo "alb_dns=$ALB_DNS" >> $GITHUB_OUTPUT
-          echo "Swagger URL: http://$ALB_DNS$LOADGEN_PATH"
+          echo "Swagger/health URL: http://$ALB_DNS$LOADGEN_PATH"
 
       - name: Wait service stable
         run: |
@@ -196,13 +198,6 @@ jobs:
   loadgen-once:
     runs-on: ubuntu-latest
     needs: [all-in-one]
-    env:
-      AWS_REGION: ${{ env.AWS_REGION }}
-      CLUSTER_NAME: ${{ env.CLUSTER_NAME }}
-      LOADGEN_REPO: ${{ env.LOADGEN_REPO }}
-      TARGET_URL: http://${{ needs.all-in-one.outputs.alb_dns }}${{ env.LOADGEN_PATH }}
-      CONCURRENCY: ${{ env.LOADGEN_CONCURRENCY }}
-      DURATION: ${{ env.LOADGEN_DURATION }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -213,6 +208,14 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Export loadgen env
+        run: |
+          echo "TARGET_URL=http://${{ needs.all-in-one.outputs.alb_dns }}${{ env.LOADGEN_PATH }}" >> $GITHUB_ENV
+          echo "CONCURRENCY=${{ env.LOADGEN_CONCURRENCY }}" >> $GITHUB_ENV
+          echo "DURATION=${{ env.LOADGEN_DURATION }}" >> $GITHUB_ENV
+          echo "LOADGEN_REPO=${{ env.LOADGEN_REPO }}" >> $GITHUB_ENV
+          echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_ENV
 
       - name: Ensure ECR for loadgen
         run: |
