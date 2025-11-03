@@ -20,7 +20,7 @@ env:
 
   DATABASE_URL: "mysql+pymysql://admin:NewStrongPass!123@database-lab-1.c3u0c6k0idq9.eu-north-1.rds.amazonaws.com:3306/parkingdb"
 
-  DOCKER_CONTEXT: "."
+  BUILD_CONTEXT: "."
   DOCKERFILE: "Dockerfile"
 
   LOADGEN_REPO: lab5-loadgen
@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       alb_dns: ${{ steps.provision.outputs.alb_dns }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,6 +44,15 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure Docker engine/context
+        run: |
+          unset DOCKER_CONTEXT || true
+          echo "DOCKER_HOST=unix:///var/run/docker.sock" >> $GITHUB_ENV
+          docker context use default 2>/dev/null || \
+            (docker context create default --docker "host=unix:///var/run/docker.sock" >/dev/null && docker context use default)
+          docker context ls
+          docker info
 
       - name: Ensure ECR exists
         run: |
@@ -58,7 +68,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f "$DOCKERFILE" -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG "$DOCKER_CONTEXT"
+          docker build -f "$DOCKERFILE" -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG "$BUILD_CONTEXT"
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -89,7 +99,7 @@ jobs:
 
           echo "==> Target Group"
           set +e
-          TG_ARN=$(aws elbv2 create-target-group --name $TG_NAME --protocol HTTP --port $CONTAINER_PORT --target-type ip --vpc-id $VPC_ID --health-check-path $LOADGEN_PATH --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null)
+          TG_ARN=$(aws elbv2 create-target-group --name $TG_NAME --protocol HTTP --port $CONTAINER_PORT --target-type ip --vpc-id $VPC_ID --health-check-path "$LOADGEN_PATH" --query 'TargetGroups[0].TargetGroupArn' --output text 2>/dev/null)
           [ -z "$TG_ARN" ] || [ "$TG_ARN" = "None" ] && TG_ARN=$(aws elbv2 describe-target-groups --names $TG_NAME --query 'TargetGroups[0].TargetGroupArn' --output text)
           set -e
 
@@ -198,6 +208,7 @@ jobs:
   loadgen-once:
     runs-on: ubuntu-latest
     needs: [all-in-one]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -208,6 +219,13 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Ensure Docker engine/context
+        run: |
+          unset DOCKER_CONTEXT || true
+          echo "DOCKER_HOST=unix:///var/run/docker.sock" >> $GITHUB_ENV
+          docker context use default 2>/dev/null || \
+            (docker context create default --docker "host=unix:///var/run/docker.sock" >/dev/null && docker context use default)
 
       - name: Export loadgen env
         run: |
@@ -229,50 +247,46 @@ jobs:
       - name: Prepare loadgen context (auto-generate if absent)
         run: |
           mkdir -p loadgen
-          if [ ! -f loadgen/Dockerfile ]; then
-            cat > loadgen/Dockerfile <<'DOCKER'
-            FROM python:3.11-slim
-            WORKDIR /app
-            RUN pip install --no-cache-dir requests
-            COPY attack.py .
-            ENV TARGET=http://example.com/swagger
-            ENV CONCURRENCY=200
-            ENV DURATION=600
-            CMD ["python", "attack.py"]
-            DOCKER
-          fi
-          if [ ! -f loadgen/attack.py ]; then
-            cat > loadgen/attack.py <<'PY'
-            import os, time, threading, requests
-            from queue import Queue
-            TARGET = os.getenv("TARGET", "http://localhost:8000/swagger")
-            CONCURRENCY = int(os.getenv("CONCURRENCY", "200"))
-            DURATION = int(os.getenv("DURATION", "600"))
-            def worker(q):
-                s = requests.Session()
-                while True:
-                    try:
-                        url = q.get(timeout=1)
-                    except:
-                        return
-                    try:
-                        s.get(url, timeout=5)
-                    except Exception:
-                        pass
-                    finally:
-                        q.task_done()
-            def main():
-                end = time.time() + DURATION
-                q = Queue(maxsize=10000)
-                threads = [threading.Thread(target=worker, args=(q,), daemon=True) for _ in range(CONCURRENCY)]
-                [t.start() for t in threads]
-                while time.time() < end:
-                    q.put(TARGET)
-                q.join()
-            if __name__ == "__main__":
-                main()
-            PY
-          fi
+          [ -f loadgen/Dockerfile ] || cat > loadgen/Dockerfile <<'DOCKER'
+          FROM python:3.11-slim
+          WORKDIR /app
+          RUN pip install --no-cache-dir requests
+          COPY attack.py .
+          ENV TARGET=http://example.com/swagger
+          ENV CONCURRENCY=200
+          ENV DURATION=600
+          CMD ["python", "attack.py"]
+          DOCKER
+          [ -f loadgen/attack.py ] || cat > loadgen/attack.py <<'PY'
+          import os, time, threading, requests
+          from queue import Queue
+          TARGET = os.getenv("TARGET", "http://localhost:8000/swagger")
+          CONCURRENCY = int(os.getenv("CONCURRENCY", "200"))
+          DURATION = int(os.getenv("DURATION", "600"))
+          def worker(q):
+              s = requests.Session()
+              while True:
+                  try:
+                      url = q.get(timeout=1)
+                  except:
+                      return
+                  try:
+                      s.get(url, timeout=5)
+                  except Exception:
+                      pass
+                  finally:
+                      q.task_done()
+          def main():
+              end = time.time() + DURATION
+              q = Queue(maxsize=10000)
+              threads = [threading.Thread(target=worker, args=(q,), daemon=True) for _ in range(CONCURRENCY)]
+              [t.start() for t in threads]
+              while time.time() < end:
+                  q.put(TARGET)
+              q.join()
+          if __name__ == "__main__":
+              main()
+          PY
 
       - name: Build & push loadgen image
         env:
