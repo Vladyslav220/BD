@@ -21,7 +21,7 @@ env:
   DATABASE_URL: "mysql+pymysql://admin:NewStrongPass!123@database-lab-1.c3u0c6k0idq9.eu-north-1.rds.amazonaws.com:3306/parkingdb"
 
   BUILD_CONTEXT: "."
-  DOCKERFILE: "Dockerfile"
+  DOCKERFILE: "lab5/Dockerfile"
 
   LOADGEN_REPO: lab5-loadgen
   LOADGEN_CONCURRENCY: "200"
