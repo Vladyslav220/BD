@@ -2,7 +2,7 @@ name: Lab33
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main"] 
 
 env:
   AWS_REGION: eu-central-1
